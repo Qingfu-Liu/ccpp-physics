@@ -19,7 +19,7 @@
 !! \htmlinclude GFS_rrtmg_post_run.html
 !!
       subroutine GFS_rrtmg_post_run (im, km, kmp1, lm, ltp, kt, kb, kd, nspc1, &
-              nfxr, nday, lsswr, lslwr, lssav, fhlwr, fhswr, raddt, coszen,    &
+              nfxr, nday, lsswr, lslwr, lssav, deltim, fhlwr, fhswr, coszen,   &
               coszdg, prsi, tgrs, aerodp, cldsa, mtopa, mbota, clouds1,        &
               cldtaulw, cldtausw, sfcflw, sfcfsw, topflw, topfsw, scmpsw,      &
               fluxr, total_albedo, errmsg, errflg)
@@ -35,7 +35,7 @@
       integer,              intent(in) :: im, km, kmp1, lm, ltp, kt, kb, kd,   &
                                           nspc1, nfxr, nday
       logical,              intent(in) :: lsswr, lslwr, lssav
-      real(kind=kind_phys), intent(in) :: raddt, fhlwr, fhswr
+      real(kind=kind_phys), intent(in) :: deltim, fhlwr, fhswr
             
       real(kind=kind_phys), dimension(im),        intent(in) :: coszen, coszdg
       
@@ -69,7 +69,7 @@
       errmsg = ''
       errflg = 0
 
-      if (.not. (lsswr .or. lslwr)) return
+!      if (.not. (lsswr .or. lslwr)) return
 
 !  - For time averaged output quantities (including total-sky and
 !    clear-sky SW and LW fluxes at TOA and surface; conventional
@@ -98,27 +98,27 @@
         endif
 
 !  ---  save lw toa and sfc fluxes
-        if (lslwr) then
+!        if (lslwr) then
           do i=1,im
 !  ---  lw total-sky fluxes
-            fluxr(i,1 ) = fluxr(i,1 ) + fhlwr * topflw(i)%upfxc   ! total sky top lw up
-            fluxr(i,19) = fluxr(i,19) + fhlwr * sfcflw(i)%dnfxc   ! total sky sfc lw dn
-            fluxr(i,20) = fluxr(i,20) + fhlwr * sfcflw(i)%upfxc   ! total sky sfc lw up
+            fluxr(i,1 ) = fluxr(i,1 ) + deltim * topflw(i)%upfxc   ! total sky top lw up
+            fluxr(i,19) = fluxr(i,19) + deltim * sfcflw(i)%dnfxc   ! total sky sfc lw dn
+            fluxr(i,20) = fluxr(i,20) + deltim * sfcflw(i)%upfxc   ! total sky sfc lw up
 !  ---  lw clear-sky fluxes
-            fluxr(i,28) = fluxr(i,28) + fhlwr * topflw(i)%upfx0   ! clear sky top lw up
-            fluxr(i,30) = fluxr(i,30) + fhlwr * sfcflw(i)%dnfx0   ! clear sky sfc lw dn
-            fluxr(i,33) = fluxr(i,33) + fhlwr * sfcflw(i)%upfx0   ! clear sky sfc lw up
+            fluxr(i,28) = fluxr(i,28) + deltim * topflw(i)%upfx0   ! clear sky top lw up
+            fluxr(i,30) = fluxr(i,30) + deltim * sfcflw(i)%dnfx0   ! clear sky sfc lw dn
+            fluxr(i,33) = fluxr(i,33) + deltim * sfcflw(i)%upfx0   ! clear sky sfc lw up
           enddo
-        endif
+!        endif
 
 !  ---  save sw toa and sfc fluxes with proper diurnal sw wgt. coszen=mean cosz over daylight
 !       part of sw calling interval, while coszdg= mean cosz over entire interval
-        if (lsswr) then
+!        if (lsswr) then
           do i = 1, IM
             if (coszen(i) > 0.) then
 !  ---                                  sw total-sky fluxes
 !                                       -------------------
-              tem0d = fhswr * coszdg(i) / coszen(i)
+              tem0d = deltim * coszdg(i) / coszen(i)
               fluxr(i,2 ) = fluxr(i,2)  +  topfsw(i)%upfxc * tem0d  ! total sky top sw up
               fluxr(i,3 ) = fluxr(i,3)  +  sfcfsw(i)%upfxc * tem0d  ! total sky sfc sw up
               fluxr(i,4 ) = fluxr(i,4)  +  sfcfsw(i)%dnfxc * tem0d  ! total sky sfc sw dn
@@ -142,14 +142,14 @@
               fluxr(i,32) = fluxr(i,32) + sfcfsw(i)%dnfx0 * tem0d  ! clear sky sfc sw dn
             endif
           enddo
-        endif
+!        endif
 
 !  ---  save total and boundary layer clouds
 
-        if (lsswr .or. lslwr) then
+!        if (lsswr .or. lslwr) then
           do i=1,im
-            fluxr(i,17) = fluxr(i,17) + raddt * cldsa(i,4)
-            fluxr(i,18) = fluxr(i,18) + raddt * cldsa(i,5)
+            fluxr(i,17) = fluxr(i,17) + deltim * cldsa(i,4)
+            fluxr(i,18) = fluxr(i,18) + deltim * cldsa(i,5)
           enddo
 
 !  ---  save cld frac,toplyr,botlyr and top temp, note that the order
@@ -158,7 +158,7 @@
 
           do j = 1, 3
             do i = 1, IM
-              tem0d = raddt * cldsa(i,j)
+              tem0d = deltim * cldsa(i,j)
               itop  = mtopa(i,j) - kd
               ibtc  = mbota(i,j) - kd
               fluxr(i, 8-j) = fluxr(i, 8-j) + tem0d
@@ -169,10 +169,11 @@
           enddo
 
 !       Anning adds optical depth and emissivity output
-          if (lsswr .and. (nday > 0)) then
+!          if (lsswr .and. (nday > 0)) then
+          if (nday > 0) then
             do j = 1, 3
               do i = 1, IM
-                tem0d = raddt * cldsa(i,j)
+                tem0d = deltim * cldsa(i,j)
                 itop  = mtopa(i,j) - kd
                 ibtc  = mbota(i,j) - kd
                 tem1 = 0.
@@ -184,10 +185,10 @@
             enddo
           endif
 
-          if (lslwr) then
+!         if (lslwr) then
             do j = 1, 3
               do i = 1, IM
-                tem0d = raddt * cldsa(i,j)
+                tem0d = deltim * cldsa(i,j)
                 itop  = mtopa(i,j) - kd
                 ibtc  = mbota(i,j) - kd
                 tem2 = 0.
@@ -199,9 +200,9 @@
             enddo
           endif
 
-        endif
+!        endif
 
-      endif                                ! end_if_lssav
+!     endif                                ! end_if_lssav
 
 !  ---  The total sky (with clouds) shortwave albedo
       total_albedo = 0.0
