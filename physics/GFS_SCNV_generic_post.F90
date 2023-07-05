@@ -15,7 +15,7 @@
         dtend, dtidx, index_of_temperature, index_of_x_wind, index_of_y_wind,      &
         index_of_process_scnv, ntqv, flag_for_scnv_generic_tend,                   &
         ntcw,ntiw,ntclamt,ntrw,ntsw,ntrnc,ntsnc,ntgl,ntgnc,ntsigma,                &
-        imfshalcnv, imfshalcnv_sas, imfshalcnv_samf, ntrac,                        &
+        imfshalcnv, imfshalcnv_samf, ntrac,                        &
         cscnv, satmedmf, trans_trac, ras, errmsg, errflg)
 
       use machine,               only: kind_phys
@@ -47,7 +47,7 @@
       ! use assumed-shape arrays. Note that Intel 18 and GNU 6.2.0-8.1.0 tolerate explicit-shape arrays
       ! as long as these do not get used when not allocated.
       real(kind=kind_phys), dimension(:,:), intent(inout) :: cnvw_phy_f3d, cnvc_phy_f3d
-      integer, intent(in) :: imfshalcnv, imfshalcnv_sas, imfshalcnv_samf
+      integer, intent(in) :: imfshalcnv, imfshalcnv_samf
       logical, intent(in) :: cscnv, satmedmf, trans_trac, ras
 
       character(len=*),              intent(out) :: errmsg
@@ -60,7 +60,7 @@
       errmsg = ''
       errflg = 0
 
-      if (imfshalcnv==imfshalcnv_sas .or. imfshalcnv==imfshalcnv_samf) then
+      if (imfshalcnv==imfshalcnv_samf) then
         do i=1,im
           rainc(i) = rainc(i) + frain * rain1(i)
         enddo
