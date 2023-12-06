@@ -2,6 +2,7 @@
   name = satmedmfvdif
   type = scheme
   dependencies = funcphys.f90,machine.F,mfpblt.f,mfscu.f,tridi.f
+  dependencies = module_satmedmf.F90
 
 ########################################################################
 [ccpp-arg-table]
@@ -49,6 +50,13 @@
 [ccpp-arg-table]
   name = satmedmfvdif_run
   type = scheme
+[cfg]
+  standard_name = parameters_for_scale_aware_TKE_moist_EDMF_PBL_2018
+  long_name = parameters for scale-aware TKE moist EDMF PBL scheme
+  units = mixed
+  dimensions = ()
+  type = ty_cfg_satmedmf
+  intent = in
 [im]
   standard_name = horizontal_loop_extent
   long_name = horizontal loop extent

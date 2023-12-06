@@ -1,0 +1,40 @@
+[ccpp-table-properties]
+  name = ty_cfg_samf_shal
+  type = ddt
+  dependencies =
+
+[ccpp-arg-table]
+  name = ty_cfg_samf_shal
+  type = ddt
+
+########################################################################
+[ccpp-table-properties]
+  name = ty_cfg_samf_deep
+  type = ddt
+  dependencies =
+
+[ccpp-arg-table]
+  name = ty_cfg_samf_deep
+  type = ddt
+
+########################################################################
+[ccpp-table-properties]
+  name = module_samf
+  type = module
+  dependencies = machine.F
+
+[ccpp-arg-table]
+  name = module_samf
+  type = module
+[ty_cfg_samf_shal]
+  standard_name = ty_cfg_samf_shal
+  long_name = definition of type ty_cfg_samf_shal
+  units = DDT
+  dimensions = ()
+  type = ty_cfg_samf_shal
+[ty_cfg_samf_deep]
+  standard_name = ty_cfg_samf_deep
+  long_name = definition of type ty_cfg_samf_deep
+  units = DDT
+  dimensions = ()
+  type = ty_cfg_samf_deep

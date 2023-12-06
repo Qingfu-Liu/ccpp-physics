@@ -61,7 +61,7 @@
 !! (mfscu.f).
 !! \section detail_satmedmfvidf GFS satmedmfvdif Detailed Algorithm 
 !> @{
-      subroutine satmedmfvdif_run(im,km,ntrac,ntcw,ntiw,ntke,           &
+      subroutine satmedmfvdif_run(cfg,im,km,ntrac,ntcw,ntiw,ntke,       &
      &     grav,rd,cp,rv,hvap,hfus,fv,eps,epsm1,                        &
      &     dv,du,tdt,rtg,u1,v1,t1,q1,swh,hlw,xmu,garea,                 &
      &     psk,rbsoil,zorl,u10m,v10m,fm,fh,                             &
@@ -75,10 +75,12 @@
 !
       use machine  , only : kind_phys
       use funcphys , only : fpvs
+      use module_satmedmf, only: ty_cfg_satmedmf
 !
       implicit none
 !
 !----------------------------------------------------------------------
+      type(ty_cfg_satmedmf), intent(in) :: cfg
       integer, intent(in)  :: im, km, ntrac, ntcw, ntiw, ntke
       integer, intent(in)  :: kinver(:)
       integer, intent(out) :: kpbl(:)
@@ -183,58 +185,31 @@
 !
 !  pcnvflg: true for unstable pbl
 !
-      real(kind=kind_phys) aphi16,  aphi5,
-     &                     wfac,    cfac,
-     &                     gamcrt,  gamcrq, sfcfrac,
+      real(kind=kind_phys)
      &                     conq,    cont,   conw,
-     &                     dsdz2,   dsdzt,  dkmax,
+     &                     dsdz2,   dsdzt,
      &                     dsig,    dt2,    dtodsd,
      &                     dtodsu,  g,      factor, dz,
-     &                     gocp,    gravi,  zol1,   zolcru,
+     &                     gocp,    gravi,  zol1,
      &                     buop,    shrp,   dtn,    cdtn,
-     &                     prnum,   prmax,  prmin,  prtke,
-     &                     prscu,   dw2,    dw2min, zk,
-     &                     elmfac,  elefac, dspmax,
-     &                     alp,     clwt,   cql,
-     &                     f0,      robn,   crbmin, crbmax,
+     &                     prnum,
+     &                     dw2,     zk,
+     &                     alp,     clwt,
+     &                     robn,
      &                     es,      qs,     value,  onemrh,
      &                     cfh,     gamma,  elocp,  el2orc,
      &                     epsi,    beta,   chx,    cqx,
-     &                     rdt,     rdz,    qmin,   qlmin,
-     &                     ri,      rimin,
-     &                     rbcr,    rbint,  tdzmin,
-     &                     rlmn,    rlmx,   elmx,
+     &                     rdt,     rdz,
+     &                     ri,  
+     &                     rbint,
      &                     ttend,   utend,  vtend,  qtend,
-     &                     zfac,    zfmin,  vk,     spdk2,
-     &                     tkmin,   xkzinv, dspfac, xkgdx,
+     &                     zfac,    spdk2,
      &                     zlup,    zldn,   bsum,
      &                     tem,     tem1,   tem2,
      &                     ptem,    ptem0,  ptem1,  ptem2
 !
-      real(kind=kind_phys) ck0, ck1, ch0, ch1, ce0, rchck
-!
-      real(kind=kind_phys) qlcr, zstblmax
-!
-      real(kind=kind_phys) h1 
       integer :: idtend
 !!
-      parameter(wfac=7.0,cfac=4.5)
-      parameter(gamcrt=3.,gamcrq=0.,sfcfrac=0.1)
-      parameter(vk=0.4,rimin=-100.)
-      parameter(rbcr=0.25,zolcru=-0.02,tdzmin=1.e-3)
-      parameter(rlmn=30.,rlmx=500.,elmx=500.)
-      parameter(prmin=0.25,prmax=4.0,prtke=1.0,prscu=0.67)
-      parameter(f0=1.e-4,crbmin=0.15,crbmax=0.35)
-      parameter(tkmin=1.e-9,dspfac=0.5,dspmax=10.0)
-      parameter(qmin=1.e-8,qlmin=1.e-12,zfmin=1.e-8)
-      parameter(aphi5=5.,aphi16=16.)
-      parameter(elmfac=1.0,elefac=1.0,cql=100.)
-      parameter(dw2min=1.e-4,dkmax=1000.,xkgdx=25000.)
-      parameter(qlcr=3.5e-5,zstblmax=2500.,xkzinv=0.15)
-      parameter(h1=0.33333333)
-      parameter(ck0=0.4,ck1=0.15,ch0=0.4,ch1=0.15,ce0=0.4)
-      parameter(rchck=1.5,cdtn=25.)
-
       gravi=1.0/grav
       g=grav
       gocp=g/cp
@@ -272,8 +247,8 @@
           xmfd(i,k) = 0.
           buou(i,k) = 0.
           buod(i,k) = 0.
-          ckz(i,k) = ck1
-          chz(i,k) = ch1
+          ckz(i,k) = cfg%ck1
+          chz(i,k) = cfg%ch1
         enddo
       enddo
       do i=1,im
@@ -292,7 +267,7 @@
 !! from tracer (\p tke and \p tkeh)
       do k=1,km
         do i=1,im
-          tke(i,k) = max(q1(i,k,ntke), tkmin)
+          tke(i,k) = max(q1(i,k,ntke), cfg%tkmin)
         enddo
       enddo
       do k=1,km1
@@ -313,18 +288,18 @@
 !!   -  set background diffusivities as a function of
 !!  horizontal grid size with xkzm_h & xkzm_m for gdx >= 25km
 !!  and 0.01 for gdx=5m, i.e.,
-!!\n  xkzm_hx = 0.01 + (xkzm_h - 0.01)/(xkgdx-5.) * (gdx-5.)
-!!\n  xkzm_mx = 0.01 + (xkzm_h - 0.01)/(xkgdx-5.) * (gdx-5.)
+!!\n  xkzm_hx = 0.01 + (xkzm_h - 0.01)/(cfg%xkgdx-5.) * (gdx-5.)
+!!\n  xkzm_mx = 0.01 + (xkzm_h - 0.01)/(cfg%xkgdx-5.) * (gdx-5.)
 
       do i=1,im
         kx1(i) = 1
         tx1(i) = 1.0 / prsi(i,1)
         tx2(i) = tx1(i)
-        if(gdx(i) >= xkgdx) then
+        if(gdx(i) >= cfg%xkgdx) then
           xkzm_hx(i) = xkzm_h
           xkzm_mx(i) = xkzm_m
         else
-          tem  = 1. / (xkgdx - 5.)
+          tem  = 1. / (cfg%xkgdx - 5.)
           tem1 = (xkzm_h - 0.01) * tem
           tem2 = (xkzm_m - 0.01) * tem
           ptem = gdx(i) - 5.
@@ -388,37 +363,37 @@
           pix(i,k)   = psk(i) / prslk(i,k)
           theta(i,k) = t1(i,k) * pix(i,k)
           if(ntiw > 0) then
-            tem = max(q1(i,k,ntcw),qlmin)
-            tem1 = max(q1(i,k,ntiw),qlmin)
+            tem = max(q1(i,k,ntcw),cfg%qlmin)
+            tem1 = max(q1(i,k,ntiw),cfg%qlmin)
             qlx(i,k) = tem + tem1
             ptem = hvap*tem + (hvap+hfus)*tem1
             slx(i,k)   = cp * t1(i,k) + phil(i,k) - ptem
           else
-            qlx(i,k) = max(q1(i,k,ntcw),qlmin)
+            qlx(i,k) = max(q1(i,k,ntcw),cfg%qlmin)
             slx(i,k)   = cp * t1(i,k) + phil(i,k) - hvap*qlx(i,k)
           endif
-          tem2       = 1.+fv*max(q1(i,k,1),qmin)-qlx(i,k)
+          tem2       = 1.+fv*max(q1(i,k,1),cfg%qmin)-qlx(i,k)
           thvx(i,k)  = theta(i,k) * tem2
           tvx(i,k)   = t1(i,k) * tem2
-          qtx(i,k) = max(q1(i,k,1),qmin)+qlx(i,k)
+          qtx(i,k) = max(q1(i,k,1),cfg%qmin)+qlx(i,k)
           thlx(i,k)  = theta(i,k) - pix(i,k)*elocp*qlx(i,k)
           thlvx(i,k) = thlx(i,k) * (1. + fv * qtx(i,k))
           svx(i,k)   = cp * tvx(i,k)
-          ptem1      = elocp * pix(i,k) * max(q1(i,k,1),qmin)
+          ptem1      = elocp * pix(i,k) * max(q1(i,k,1),cfg%qmin)
           thetae(i,k)= theta(i,k) +  ptem1
           gotvx(i,k) = g / tvx(i,k)
         enddo
       enddo
 !
 !>  - The background vertical diffusivities in the inversion layers are limited 
-!! to be less than or equal to xkzinv
+!! to be less than or equal to cfg%xkzinv
 !
       do k = 1,km1
         do i=1,im
           tem1 = (tvx(i,k+1)-tvx(i,k)) * rdzt(i,k)
           if(tem1 > 1.e-5) then
-             xkzo(i,k)  = min(xkzo(i,k),xkzinv)
-             xkzmo(i,k) = min(xkzmo(i,k),xkzinv)
+             xkzo(i,k)  = min(xkzo(i,k),cfg%xkzinv)
+             xkzmo(i,k) = min(xkzmo(i,k),cfg%xkzinv)
           endif
         enddo
       enddo
@@ -430,8 +405,8 @@
           plyr(i,k)   = 0.01 * prsl(i,k)   ! pa to mb (hpa)
 !  --- ...  compute relative humidity
           es  = 0.01 * fpvs(t1(i,k))       ! fpvs in pa
-          qs  = max(qmin, eps * es / (plyr(i,k) + epsm1*es))
-          rhly(i,k) = max(0.0, min(1.0, max(qmin, q1(i,k,1))/qs))
+          qs  = max(cfg%qmin, eps * es / (plyr(i,k) + epsm1*es))
+          rhly(i,k) = max(0.0, min(1.0, max(cfg%qmin, q1(i,k,1))/qs))
           qstl(i,k) = qs
         enddo
       enddo
@@ -443,7 +418,7 @@
           if (qlx(i,k) > clwt) then
             onemrh= max(1.e-10, 1.0-rhly(i,k))
             tem1  = min(max((onemrh*qstl(i,k))**0.49,0.0001),1.0)
-            tem1  = cql / tem1
+            tem1  = cfg%cql / tem1
             value = max(min( tem1*qlx(i,k), 50.0), 0.0)
             tem2  = sqrt(sqrt(rhly(i,k)))
             cfly(i,k) = min(max(tem2*(1.0-exp(-value)), 0.0), 1.0)
@@ -514,15 +489,15 @@
         if(pblflg(i)) then
 !         thermal(i) = thvx(i,1)
           thermal(i) = thlvx(i,1)
-          crb(i) = rbcr
+          crb(i) = cfg%rbcr
         else
-          thermal(i) = tsea(i)*(1.+fv*max(q1(i,1,1),qmin))
+          thermal(i) = tsea(i)*(1.+fv*max(q1(i,1,1),cfg%qmin))
           tem = sqrt(u10m(i)**2+v10m(i)**2)
           tem = max(tem, 1.)
-          robn = tem / (f0 * z0(i))
+          robn = tem / (cfg%f0 * z0(i))
           tem1 = 1.e-7 * robn
           crb(i) = 0.16 * (tem1 ** (-0.18))
-          crb(i) = max(min(crb(i), crbmax), crbmin)
+          crb(i) = max(min(crb(i), cfg%crbmax), cfg%crbmin)
         endif
       enddo
 !
@@ -544,7 +519,7 @@
 !        bf(i,k) = gotvx(i,k)*(thvx(i,k+1)-thvx(i,k))*rdz
          dw2  = (u1(i,k)-u1(i,k+1))**2
      &        + (v1(i,k)-v1(i,k+1))**2
-         shr2(i,k) = max(dw2,dw2min)*rdz*rdz
+         shr2(i,k) = max(dw2,cfg%dw2min)*rdz*rdz
       enddo
       enddo
 !
@@ -609,11 +584,11 @@
 !!  where \f$F_m\f$ and \f$F_h\f$ are surface Monin-Obukhov stability functions calculated in sfc_diff.f and 
 !! \f$L\f$ is the Obukhov length.
       do i=1,im
-         zol(i) = max(rbsoil(i)*fm(i)*fm(i)/fh(i),rimin)
+         zol(i) = max(rbsoil(i)*fm(i)*fm(i)/fh(i),cfg%rimin)
          if(sfcflg(i)) then
-           zol(i) = min(zol(i),-zfmin)
+           zol(i) = min(zol(i),-cfg%zfmin)
          else
-           zol(i) = max(zol(i),zfmin)
+           zol(i) = max(zol(i),cfg%zfmin)
          endif
 !>  - Calculate the nondimensional gradients of momentum and temperature (\f$\phi_m\f$ (phim) and \f$\phi_h\f$(phih)) are calculated using
 !! eqns 5 and 6 from Hong and Pan (1996) \cite hong_and_pan_1996 depending on the surface layer stability:
@@ -627,13 +602,13 @@
 !!\f[
 !!     \phi_m=\phi_t=(1+5\frac{0.1h}{L})
 !!\f]
-         zol1 = zol(i)*sfcfrac*hpbl(i)/zl(i,1)
+         zol1 = zol(i)*cfg%sfcfrac*hpbl(i)/zl(i,1)
          if(sfcflg(i)) then
-           tem     = 1.0 / (1. - aphi16*zol1)
+           tem     = 1.0 / (1. - cfg%aphi16*zol1)
            phih(i) = sqrt(tem)
            phim(i) = sqrt(phih(i))
          else
-           phim(i) = 1. + aphi5*zol1
+           phim(i) = 1. + cfg%aphi5*zol1
            phih(i) = phim(i)
          endif
       enddo
@@ -647,7 +622,7 @@
 !!  w_s=(u_*^3+7\alpha\kappa w_*^3)^{1/3}
 !!\f]
 !!  where \f$u_*\f$ (ustar) is the surface friction velocity,\f$\alpha\f$ is the ratio
-!! of the surface layer height to the PBL height (specified as sfcfrac =0.1), 
+!! of the surface layer height to the PBL height (specified as cfg%sfcfrac =0.1), 
 !! \f$\kappa =0.4\f$ is the von Karman constant, and \f$w_*\f$ is the convective velocity
 !! scale defined as eqn23 of Han et al.(2019):
 !!\f[
@@ -655,14 +630,15 @@
 !!\f]
       do i=1,im
         if(pblflg(i)) then
-          if(zol(i) < zolcru) then
+          if(zol(i) < cfg%zolcru) then
             pcnvflg(i) = .true.
           endif
           wst3(i) = gotvx(i,1)*sflux(i)*hpbl(i)
-          wstar(i)= wst3(i)**h1
+          wstar(i)= wst3(i)**cfg%h1
           ust3(i) = ustar(i)**3.
-          wscale(i)=(ust3(i)+wfac*vk*wst3(i)*sfcfrac)**h1
-          ptem = ustar(i)/aphi5
+          wscale(i)=(ust3(i)+cfg%wfac*cfg%vk*wst3(i)*
+     &         cfg%sfcfrac)**cfg%h1
+          ptem = ustar(i)/cfg%aphi5
           wscale(i) = max(wscale(i),ptem)
         endif
       enddo
@@ -675,7 +651,7 @@
            hgamq(i) = evap(i)/wscale(i)
            vpert(i) = hgamt(i) + hgamq(i)*fv*theta(i,1)
            vpert(i) = max(vpert(i),0.)
-           tem = min(cfac*vpert(i),gamcrt)
+           tem = min(cfg%cfac*vpert(i),cfg%gamcrt)
            thermal(i)= thermal(i) + tem
          endif
       enddo
@@ -736,7 +712,7 @@
       enddo
       do k = 1, km1
         do i=1,im
-          if(flg(i).and.zl(i,k) >= zstblmax) then
+          if(flg(i).and.zl(i,k) >= cfg%zstblmax) then
              lcld(i)=k
              flg(i)=.false.
           endif
@@ -748,7 +724,7 @@
       do k = kmscu,1,-1
       do i = 1, im
         if(flg(i) .and. k <= lcld(i)) then
-          if(qlx(i,k) >= qlcr) then
+          if(qlx(i,k) >= cfg%qlcr) then
              kcld(i)=k
              flg(i)=.false.
           endif
@@ -769,7 +745,7 @@
       do k = kmscu,1,-1
       do i = 1, im
         if(flg(i) .and. k <= kcld(i)) then
-          if(qlx(i,k) >= qlcr) then
+          if(qlx(i,k) >= cfg%qlcr) then
             if(radx(i,k) < radmin(i)) then
               radmin(i)=radx(i,k)
               krad(i)=k
@@ -837,29 +813,29 @@
 !! is the PBL height) non-dimensional gradient functions for heat and momentum, 
 !! respectively. 
 !!   - We assume that \f$P_r=0.67\f$ in the stratocumulus and the unstable 
-!! layers above PBL (prscu).
+!! layers above PBL (cfg%prscu).
 !!   - For the stable layers above PBL, \f$P_r\f$ is given as \f$P_r=1+2.1R_i\f$ 
 !! (prnum) (Kennedy and Shapiro (1980)\cite kennedy_and_shapiro_1980 )
       do k = 1, kmpbl
         do i = 1, im
           if(k < kpbl(i)) then
             tem = phih(i)/phim(i)
-            ptem = -3.*(max(zi(i,k+1)-sfcfrac*hpbl(i),0.))**2.
+            ptem = -3.*(max(zi(i,k+1)-cfg%sfcfrac*hpbl(i),0.))**2.
      &               /hpbl(i)**2.
             if(pcnvflg(i)) then
               prn(i,k) =  1. + (tem-1.)*exp(ptem)
             else
               prn(i,k) = tem
             endif
-            prn(i,k) = min(prn(i,k),prmax)
-            prn(i,k) = max(prn(i,k),prmin)
+            prn(i,k) = min(prn(i,k),cfg%prmax)
+            prn(i,k) = max(prn(i,k),cfg%prmin)
 !
-            ckz(i,k) = ck1 + (ck0-ck1)*exp(ptem)
-            ckz(i,k) = min(ckz(i,k),ck0)
-            ckz(i,k) = max(ckz(i,k),ck1)
-            chz(i,k) = ch1 + (ch0-ch1)*exp(ptem)
-            chz(i,k) = min(chz(i,k),ch0)
-            chz(i,k) = max(chz(i,k),ch1)
+            ckz(i,k) = cfg%ck1 + (cfg%ck0-cfg%ck1)*exp(ptem)
+            ckz(i,k) = min(ckz(i,k),cfg%ck0)
+            ckz(i,k) = max(ckz(i,k),cfg%ck1)
+            chz(i,k) = cfg%ch1 + (cfg%ch0-cfg%ch1)*exp(ptem)
+            chz(i,k) = min(chz(i,k),cfg%ch0)
+            chz(i,k) = max(chz(i,k),cfg%ch1)
           endif
         enddo
       enddo
@@ -882,9 +858,9 @@
               zlup = zlup + dz
               if(bsum >= tke(i,k)) then
                 if(ptem >= 0.) then
-                  tem2 = max(ptem, zfmin)
+                  tem2 = max(ptem, cfg%zfmin)
                 else
-                  tem2 = min(ptem, -zfmin)
+                  tem2 = min(ptem, -cfg%zfmin)
                 endif
                 ptem1 = (bsum - tke(i,k)) / tem2
                 zlup = zlup - ptem1 * dz 
@@ -900,7 +876,7 @@
             if(mlenflg) then
               if(n == 1) then
                 dz = zl(i,1)
-                tem1 = tsea(i)*(1.+fv*max(q1(i,1,1),qmin))
+                tem1 = tsea(i)*(1.+fv*max(q1(i,1,1),cfg%qmin))
               else
                 dz = zl(i,n) - zl(i,n-1)
                 tem1 = thvx(i,n-1)
@@ -912,9 +888,9 @@
               zldn = zldn + dz
               if(bsum >= tke(i,k)) then
                 if(ptem >= 0.) then
-                  tem2 = max(ptem, zfmin)
+                  tem2 = max(ptem, cfg%zfmin)
                 else
-                  tem2 = min(ptem, -zfmin)
+                  tem2 = min(ptem, -cfg%zfmin)
                 endif
                 ptem1 = (bsum - tke(i,k)) / tem2
                 zldn = zldn - ptem1 * dz 
@@ -925,7 +901,7 @@
           enddo
 !
           tem = 0.5 * (zi(i,k+1)-zi(i,k))
-          tem1 = min(tem, rlmn)
+          tem1 = min(tem, cfg%rlmn)
 !>  - Following Bougeault and Lacarrere(1989), the characteristic length
 !! scale (\f$l_2\f$) (eqn 10 in Han et al.(2019) \cite Han_2019) is given by:
 !!\f[
@@ -939,14 +915,14 @@
 !! having an initial TKE can travel upward and downward before being stopped
 !! by buoyancy effects.
           ptem2 = min(zlup,zldn)
-          rlam(i,k) = elmfac * ptem2
+          rlam(i,k) = cfg%elmfac * ptem2
           rlam(i,k) = max(rlam(i,k), tem1)
-          rlam(i,k) = min(rlam(i,k), rlmx)
+          rlam(i,k) = min(rlam(i,k), cfg%rlmx)
 !
           ptem2 = sqrt(zlup*zldn)
-          ele(i,k) = elefac * ptem2
+          ele(i,k) = cfg%elefac * ptem2
           ele(i,k) = max(ele(i,k), tem1)
-          ele(i,k) = min(ele(i,k), elmx)
+          ele(i,k) = min(ele(i,k), cfg%elmx)
 !
         enddo
       enddo
@@ -954,7 +930,7 @@
 !! Nakanishi (2001) \cite Nakanish_2001 (eqn 9 of Han et al.(2019) \cite Han_2019)
       do k = 1, km1
         do i = 1, im
-          tem = vk * zl(i,k)
+          tem = cfg%vk * zl(i,k)
           if (zol(i) < 0.) then
             ptem = 1. - 100. * zol(i)
             ptem1 = ptem**0.2
@@ -994,14 +970,14 @@
                dku(i,k) = dkt(i,k) * prn(i,k)
              endif
            else
-              ri = max(bf(i,k)/shr2(i,k),rimin)
+              ri = max(bf(i,k)/shr2(i,k),cfg%rimin)
               if(ri < 0.) then ! unstable regime
-                dku(i,k) = ck1 * tem
+                dku(i,k) = cfg%ck1 * tem
                 dkt(i,k) = rchck * dku(i,k)
               else             ! stable regime
-                dkt(i,k) = ch1 * tem
+                dkt(i,k) = cfg%ch1 * tem
                 prnum = 1.0 + 2.1*ri
-                prnum = min(prnum,prmax)
+                prnum = min(prnum,cfg%prmax)
                 dku(i,k) = dkt(i,k) * prnum
               endif
            endif
@@ -1009,19 +985,19 @@
            if(scuflg(i)) then
              if(k >= mrad(i) .and. k < krad(i)) then
                 tem1 = ckz(i,k) * tem
-                ptem1 = tem1 / prscu
+                ptem1 = tem1 / cfg%prscu
                 dku(i,k) = max(dku(i,k), tem1)
                 dkt(i,k) = max(dkt(i,k), ptem1)
              endif
            endif
 !
-           dkq(i,k) = prtke * dkt(i,k)
+           dkq(i,k) = cfg%prtke * dkt(i,k)
 !
-           dkt(i,k) = min(dkt(i,k),dkmax)
+           dkt(i,k) = min(dkt(i,k),cfg%dkmax)
            dkt(i,k) = max(dkt(i,k),xkzo(i,k))
-           dkq(i,k) = min(dkq(i,k),dkmax)
+           dkq(i,k) = min(dkq(i,k),cfg%dkmax)
            dkq(i,k) = max(dkq(i,k),xkzo(i,k))
-           dku(i,k) = min(dku(i,k),dkmax)
+           dku(i,k) = min(dku(i,k),cfg%dkmax)
            dku(i,k) = max(dku(i,k),xkzmo(i,k))
 !
         enddo
@@ -1031,7 +1007,7 @@
         if(scuflg(i)) then
            k = krad(i)
            tem = bf(i,k) / gotvx(i,k)
-           tem1 = max(tem, tdzmin)
+           tem1 = max(tem, cfg%tdzmin)
            ptem = radj(i) / tem1
            dkt(i,k) = dkt(i,k) + ptem
            dku(i,k) = dku(i,k) + ptem
@@ -1092,7 +1068,7 @@
             ptem2 = ptem2 + ptem
 !
 !           tem2 = stress(i)*spd1(i)/zl(i,1)
-            tem2 = stress(i)*ustar(i)*phim(i)/(vk*zl(i,1))
+            tem2 = stress(i)*ustar(i)*phim(i)/(cfg%vk*zl(i,1))
             shrp = 0.5 * (tem1 + ptem1 + ptem2 + tem2)
           else
             tem1 = -dkt(i,k-1) * bf(i,k-1)
@@ -1167,7 +1143,7 @@
 !
       do k = 1,km1
         do i=1,im
-           rle(i,k) = ce0 / ele(i,k)
+           rle(i,k) = cfg%ce0 / ele(i,k)
         enddo
       enddo
       kk = max(nint(dt2/cdtn), 1)
@@ -1180,7 +1156,7 @@
            tem1 = prod(i,k) + tke(i,k) / dtn
            diss(i,k)=max(min(diss(i,k), tem1), 0.)
            tke(i,k) = tke(i,k) + dtn * (prod(i,k)-diss(i,k))
-           tke(i,k) = max(tke(i,k), tkmin)
+           tke(i,k) = max(tke(i,k), cfg%tkmin)
         enddo
       enddo
       enddo
@@ -1279,7 +1255,7 @@
 !
       do k = 1,km
          do i = 1,im
-!           f1(i,k) = max(f1(i,k), tkmin)
+!           f1(i,k) = max(f1(i,k), cfg%tkmin)
             qtend = (f1(i,k)-q1(i,k,ntke))*rdt
             rtg(i,k,ntke) = rtg(i,k,ntke)+qtend
          enddo
@@ -1438,10 +1414,10 @@
       if(dspheat) then
       do k = 1,km1
         do i = 1,im
-!         tem = min(diss(i,k), dspmax)
+!         tem = min(diss(i,k), cfg%dspmax)
 !         ttend = tem / cp
           ttend = diss(i,k) / cp
-          tdt(i,k) = tdt(i,k) + dspfac * ttend
+          tdt(i,k) = tdt(i,k) + cfg%dspfac * ttend
         enddo
       enddo
       endif

@@ -2,6 +2,7 @@
   name = samfshalcnv
   type = scheme
   dependencies = funcphys.f90,machine.F,samfaerosols.F,progsigma_calc.f90
+  dependencies = module_samf.F90
 
 ########################################################################
 [ccpp-arg-table]
@@ -41,6 +42,13 @@
 [ccpp-arg-table]
   name = samfshalcnv_run
   type = scheme
+[cfg]
+  standard_name = parameters_for_scale_aware_mass_flux_shallow_convection
+  long_name = parameters for SAMF shallow convection scheme
+  units = mixed
+  dimensions = ()
+  type = ty_cfg_samf_shal
+  intent = in
 [im]
   standard_name = horizontal_loop_extent
   long_name = horizontal loop extent
